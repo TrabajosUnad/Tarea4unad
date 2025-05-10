@@ -1,0 +1,99 @@
+import happybase
+import pandas as pd
+from datetime import datetime
+
+# cargar el dataset empleados.csv
+df = pd.read_csv('empleados.csv')
+
+# Conectarse con HBase
+connection = happybase.Connection('localhost')
+connection.open()
+
+# Definiendo la tabla y las familias
+table_name = 'empleados'
+families = {
+        'personal' : dict(),
+        'financiero': dict()
+}
+# Eliminar la tabla si ya existe
+if table_name.encode() in connection.tables():
+ print(f"Eliminando tabla existente - {table_name}")
+ connection.delete_table(table_name, disable=True)
+
+# Crear nueva tabla
+connection.create_table(table_name, families)
+table = connection.table(table_name)
+print("Tabla 'empleados' creaada exitosamente")
+
+# Iterar sobre el dataset usando el ID
+for index, row in df.iterrows():
+ row_key = f'df_{index}'.encode()
+# Organizando los datos en familias de columnas
+ data ={
+ b'personal:Nombre':str(row['Nombre']).encode(),
+ b'personal:Edad':str(row['Edad']).encode(),
+ b'financiero:Salario':str(row['Salario']).encode()
+ }
+ table.put(row_key, data)
+print("Los datos se cargaron de manera exitosa")
+# Consulta y análisis de datos
+print("\n=== Se recorre todos los datos ---")
+
+for key, data in table.scan():
+ print(f"\nID: {key.decode()}")
+ print(f"Nombre: {data[b'personal:Nombre'].decode()}")
+ print(f"Edad: {data[b'personal:Edad'].decode()}")
+ print(f"Salario: {data[b'financiero:Salario'].decode()}")
+
+# Consultar por un ID espesifico
+print("\n=== Se consulta la información del ID  ===")
+
+row = table.row(b'df_5')
+nombre = row.get(b'personal:Nombre',b'N/A').decode()
+edad = row.get(b'personal:Edad', b'N/A').decode()
+salario = row.get(b'financiero:Salario', b'N/A').decode()
+
+print(f"Empleado ID:5")
+print(f"Nombre: {nombre}")
+print(f"Edad: {edad}")
+print(f"Salario: {salario}")
+
+# Filtrar datos
+print("\n=== Se seleciona los empleados con salarios mayor a 500000 ===")
+salary_filter = "SingleColumnValueFilter('financiero', 'Salario', >, 'bina>
+
+try:
+    for key, data in table.scan(filter=salary_filter.encode()):
+     print(f"\nUsuario ID: {key.decode()}")
+     print(f"Nombre:{data[b'personal:Nombre'].decode()}")
+     print(f"Edad:{data[b'personal:Edad'].decode()}")
+     print(f"Salario:{data[b'financiero:Salario'].decode()}")
+except Exception as e:
+    print("Error al realizar la consulta:", e)
+
+# Insercion de datos
+print("\n=== Se insertara un nuevo salario para el empleado de ID 5 ===")
+
+usuario_actualizar = 'df_5'
+nuevo_salario = 355967
+table.put(usuario_actualizar.encode(),{b'financiero:Salario':str(nuevo_sal>
+
+# Seguarda los datos en variables
+
+row = table.row(b'df_5')
+nombre = row.get(b'personal:Nombre',b'N/A').decode()
+edad = row.get(b'personal:Edad', b'N/A').decode()
+salario = row.get(b'financiero:Salario', b'N/A').decode()
+
+# Se muestran los datos por consosla
+
+print(f"Empleado ID:5")
+print(f"Nombre: {nombre}")
+print(f"Edad: {edad}")
+print(f"Salario: {salario}")
+
+print(f"\n=== Salario actualizado para el ID: {usuario_actualizar}")
+
+# Cerrar la conexión
+connection.close()
+

@@ -1,0 +1,163 @@
+//Dataset https://www.kaggle.com/datasets/antonkozyriev/game-recommendations-on-steam?select=games.csv
+
+//Contar todos los documentos de una colección:
+db.games.countDocuments();
+
+//Contar los documentos de una colección usando filtro, ejemplo rating "Overwhelmingly Positive":
+db.games.countDocuments({ rating: "Overwhelmingly Positive" })
+
+
+//Juego que tiene la mayor cantidad de reseñas de acuerdo con el campo user_reviews:
+db.games.aggregate([
+  { $sort: { user_reviews: -1 } },  //Ordena por user_reviews de forma ascendente
+  { $limit: 1 },  //Limitar al docuemnto que tenga mayor cantidad de user_reviews
+  { $project: { _id: 0, title: 1, user_reviews: 1, date_release: 1, rating: 1 } } // Campos especificos a mostrar
+])
+
+
+//Contar cuántos juegos son compatibles con cada sistema operativo (Windows, Mac, Linux). Usamos el operador de agregación $group y contar los documentos donde los valores win, mac, y linux sean verdaderos:
+db.games.aggregate([
+  { $group: { 
+      _id: null,
+      win: { $sum: { $cond: [{ $eq: ["$win", true] }, 1, 0] } },
+      mac: { $sum: { $cond: [{ $eq: ["$mac", true] }, 1, 0] } },
+      linux: { $sum: { $cond: [{ $eq: ["$linux", true] }, 1, 0] } }
+  }},
+  { $project: { _id: 0, win: 1, mac: 1, linux: 1 } }
+]);
+//_id: null: todos los documentos de la colección games se agrupan en un solo conjunto
+//$sum: operador utilizado para expresar de forma resumida una suma de datos 
+//$cond: evalua una expresión boleana y devuelve una de las dos expresiones especificada 
+//$eq: compara dos valores y devuelve true (cuando son equivalentes) o false (cuando no son equivalentes)
+
+
+//Top 5 de juegos con mayor precio, con base en el campo price_final:
+db.games.aggregate([
+  { $sort: { price_final: -1 } },  // Ordenar por price_final de forma descendente
+  { $limit: 5 },  // Top 5 mayor precio
+  { $project: { _id: 0, title: 1, price_final: 1, date_release: 1, rating: 1 } }  // Mostrar título, precio y fecha de lanzamiento y rating
+]);
+
+
+//Contar video juegos donde el año de lanzamiento sea mayor a 2023:
+db.games.countDocuments({ 
+  date_release: { $gt: new Date("2023-01-01") }
+});
+
+//Buscar video juegos donde el año de lanzamiento sea mayor a 2023, mostrar campos: title, date_release, user_reviews, rating: 
+db.games.find(
+  { date_release: { $gt: new Date("2023-01-01") } },  // Filtrar por fecha de lanzamiento mayor a 2020
+  { _id: 0, title: 1, date_release: 1, user_reviews: 1, rating: 1 }  // Mostrar los campos solicitados
+);
+
+//Calcular el promedio de comentarios, con base en el campo positive_ratio (ratio de comentarios) por cada tipo de rating y ordenar los resultados de mayor a menor:
+db.games.aggregate([
+  { $group: { 
+      _id: "$rating",  // Agrupar por rating
+      average_positive_ratio: { $avg: "$positive_ratio" }  // Calcular el promedio de positive_ratio
+  }},
+  { $sort: { average_positive_ratio: -1 } }  // Opcional: ordenar los resultados de mayor a menor promedio
+])
+
+//Insertar varios registros:
+db.games.insertMany([
+  {
+    app_id: 90876,
+    title: "Game of the Year",
+    date_release: new Date("2024-10-25"),
+    win: true,
+    mac: true,
+    linux: true,
+    rating: "Overwhelmingly Positive",
+    positive_ratio: 98,
+    user_reviews: 5000,
+    price_final: 79.99
+  },
+  {
+    app_id: 12503,
+    title: "Adventure Quest",
+    date_release: new Date("2023-08-15"),
+    win: true,
+    mac: false,
+    linux: false,
+    rating: "Mixed",
+    positive_ratio: 60,
+    user_reviews: 2000,
+    price_final: 39.99
+  }
+])
+
+//Actualización del valor de un video juego en la colección games:
+db.games.updateOne(
+  { title: "Adventure Quest" },  // filtro para seleccionar el nombre del juego
+  { $set: { price_final: 69.00 } }  // operación para actualizar campo en el documento 
+)
+
+//Eliminar varios documentos de la colección games usando deleteMany()
+db.games.deleteMany({ rating: "Negative" }) // eliminamos los documentos donde el rating sea "Negative"
+
+//Unir dos colecciones, data y games por medio del campo app_id:
+db.data.aggregate([
+   {
+     $lookup: { // el operador $lookup funciona como un join
+       from: "games",
+       localField: "app_id",
+       foreignField: "app_id",
+       as: "game_info" 
+     }
+   }
+])
+
+//Consulta de los juegos disponibles en Steam DEck con su descripción y título:
+db.data.aggregate([
+   {
+     $lookup: { // el operador $lookup funciona como un join
+       from: "games", 
+       localField: "app_id", // app_id de la colección data
+       foreignField: "app_id", // app_id de la colección games
+       as: "game_info" // array de documentos
+     }
+   },
+   {
+     $unwind: "$game_info" // descompone el array
+   },
+   {
+     $match: {
+       "game_info.steam_deck": true // filtra los documentos donde steam_deck sea true
+     }
+   },
+   {
+     $project: {
+       "description": 1, // muestra la descripción
+       "game_info.title": 1 // muestra el título
+     }
+   }
+])
+
+//Mostrar juegos con algún descuento y su respectiva descripción:
+db.data.aggregate([
+   {
+     $lookup: { // el operador $lookup funciona como un join
+       from: "games",
+       localField: "app_id", // app_id de la colección data
+       foreignField: "app_id", // app_id de la colección games
+       as: "game_info" // array de documentos
+     }
+   },
+   {
+     $unwind: "$game_info" // descompone el array
+   },
+   {
+     $match: {
+       "game_info.discount": { $gt: 0 } // filtro descuento
+     }
+   },
+   {
+     $project: {
+       "description": 1, // muestra la descripción
+       "game_info.title": 1, // muestra el título
+       "game_info.discount": 1, // muestra el descuento
+       "game_info.price_final": 1 // muestra el precio final
+     }
+   }
+])

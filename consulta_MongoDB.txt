@@ -1,0 +1,75 @@
+Consulas usadas MongoDB
+
+db["Ventas1"].find()
+
+db["Ventas1"].find({},{prod_name:1,category:1,subcategory:1,prod_unit_price:1, _id:0})
+
+db["Ventas1"].updateOne({prod_name:'Ambientador Brizze pasión tropical Palitos '},{$set:{prod_unit_price:7.12}});
+
+db["Ventas1"].find({},{prod_name:1,category:1,subcategory:1,prod_unit_price:1, _id:0})
+
+db["Ventas1"].updateMany({prod_brand:'3M'},{$set:{prod_unit_price:55.55}});
+
+db["Ventas1"].find({prod_brand:'3M'});
+
+db["Ventas1"].find({},{prod_name:1,category:1,subcategory:1,prod_unit_price:1, _id:0})
+
+db["Ventas1"].find({tags:'Aceite'})
+
+db["Ventas1"].deleteOne({prod_id: 7701018004556});
+
+db["Ventas1"].deleteMany({tags:'Aceite'});
+
+db.Ventas1.aggregate([
+  {
+    $match: { prod_unit_price: { $gte: 990.000 } }
+  },
+  {
+    $project: {
+      prod_unit_price: 1,
+      promocion: { $multiply: ["$prod_unit_price", 0.7] } // Calcula el precio con descuento del 30%
+    }
+  }
+]);
+
+db.Ventas1.aggregate([
+  {
+    $match: { $and:[{prod_unit_price: { $gte: 30.000 },prod_unit_price:{$lt:50.00}}]}
+  },
+  {
+    $project: {
+      prod_unit_price: 1,
+      promocion_70: { $multiply: ["$prod_unit_price", 0.3] } // Calcula el precio con descuento del 30%
+    }
+  }
+]);
+
+db.Ventas1.insertOne({
+  date:20241117,
+  prod_id: 753159852456,
+  prod_nane: "Laptop",
+  prod_name_long:'Portatil Gamer Pro5000',
+  prod_brand:'Electronica',
+  subcategoria:'Digital',
+  tags:'Portatil',
+  prod_unit_price: 1500,
+  prod_unid: 'Unidad',
+  prod_icon:'../icons/SVG/sera',
+  prod_source: 'Rojo',
+  source_type:1
+})
+
+db.Ventas1.find({ subcategoria:'Digital'});
+
+db.Ventas1.countDocuments({ subcategory: 'Bebidas'});
+
+db.Ventas1.aggregate([
+  { $match: { subcategory: "Pasabocas" } },
+  { $group: { _id: null, total: { $sum: "$prod_unit_price" } } }
+]);
+
+db.Ventas1.aggregate([
+  { $match: { $and: [{ subcategory: 'Vinos y Licores' }, { tags: 'Brandy' }] } },
+  { $group: { _id: null, promedio_precion: { $avg: '$prod_unit_price' } } }
+]);
+
